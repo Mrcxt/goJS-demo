@@ -1,3 +1,8 @@
+//去console插件
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
+//gzip压缩插件
+const CompressionWebpackPlugin = require('compression-webpack-plugin')
+
 module.exports = {
     // 基本路径
     baseUrl: './',
@@ -45,7 +50,28 @@ module.exports = {
         before: app => {}
     },
     // 第三方插件配置
-    pluginOptions: {
-        // ...
+    pluginOptions: {},
+    //  webpack插件配置
+    configureWebpack: config => {
+        plugins = [
+            new UglifyJsPlugin({
+                uglifyOptions: {
+                    compress: {
+                        warnings: false,
+                        drop_debugger: true,
+                        drop_console: true
+                    }
+                },
+                sourceMap: false,
+                parallel: true
+            }),
+            new CompressionWebpackPlugin({
+                asset: '[path].gz[query]',
+                algorithm: 'gzip',
+                test: new RegExp('\\.(' + ['js', 'css'].join('|') + ')$',),
+                threshold: 10240,
+                minRatio: 0.8
+            })
+        ];
     }
 }
