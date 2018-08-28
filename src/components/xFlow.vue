@@ -1,96 +1,530 @@
 <template>
-  <div id="myDiagramDiv" class="xFlow"></div>
+  <div style="width: 100%; display: flex; justify-content: space-between">
+    <div id="myPaletteDiv" style="width: 100px; margin-right: 2px; background-color: whitesmoke; border: solid 1px black"></div>
+    <div id="myDiagramDiv" style="flex-grow: 1; height: 750px; border: solid 1px black"></div>
+  </div>
 </template>
 
 <script>
-import "./../assets/go.js";
 export default {
   mounted() {
     this.init();
   },
   methods: {
+    //定义一个模板
+    $() {
+      return go.GraphObject.make; // 定义一个模板
+    },
+    // 定义一个画布
+    myDiagram() {
+      return go.GraphObject.make(go.Diagram, "myDiagramDiv", {
+        initialContentAlignment: go.Spot.Center, //画布初始位置
+        allowDrop: true, //
+        scrollsPageOnFocus: false, //
+        "undoManager.isEnabled": true // 撤销和重做
+      });
+    },
     // 初始化
     init() {
-      // 创建画布 -- Diagram
-      let $ = go.GraphObject.make;
-      let myDiagram = $(go.Diagram, "myDiagramDiv", {
-        "undoManager.isEnabled": true,
-        layout: $(go.TreeLayout, { angle: 90, layerSpacing: 35 })
-      });
+      const $ = this.$();
+      const myDiagram = this.myDiagram();
+      console.log(this.$);
 
-      // 创建节点 -- Node
-      myDiagram.nodeTemplate = $(
-        go.Node,
-        "Vertical",
-        {
-          locationSpot: go.Spot.Center,
-          background: "#34c84a"
-        },
-        new go.Binding("location", "loc"),
-        // 创建图形
-        $(
-          go.Shape,
-          "RoundedRectangle",
+      // helper definitions for node templates
+
+      function nodeStyle() {
+        return [
+          // The Node.location comes from the "loc" property of the node data,
+          // converted by the Point.parse static method.
+          // If the Node.location is changed, it updates the "loc" property of the node data,
+          // converting back using the Point.stringify static method.
+          new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
+            go.Point.stringify
+          ),
           {
-            background: "#fff",
-            margin: 10,
-            stroke: "red"
+            // the Node.location is at the center of each node
+            locationSpot: go.Spot.Center
+          }
+        ];
+      }
+
+      // Define a function for creating a "port" that is normally transparent.
+      // The "name" is used as the GraphObject.portId,
+      // the "align" is used to determine where to position the port relative to the body of the node,
+      // the "spot" is used to control how links connect with the port and whether the port
+      // stretches along the side of the node,
+      // and the boolean "output" and "input" arguments control whether the user can draw links from or to the port.
+      function makePort(name, align, spot, output, input) {
+        let horizontal =
+          align.equals(go.Spot.Top) || align.equals(go.Spot.Bottom);
+        // the port is basically just a transparent rectangle that stretches along the side of the node,
+        // and becomes colored when the mouse passes over it
+        return $(go.Shape, {
+          fill: "transparent", // changed to a color in the mouseEnter event handler
+          strokeWidth: 0, // no stroke
+          width: horizontal ? NaN : 8, // if not stretching horizontally, just 8 wide
+          height: !horizontal ? NaN : 8, // if not stretching vertically, just 8 tall
+          alignment: align, // align the port on the main Shape
+          stretch: horizontal
+            ? go.GraphObject.Horizontal
+            : go.GraphObject.Vertical,
+          portId: name, // declare this object to be a "port"
+          fromSpot: spot, // declare where links may connect at this port
+          fromLinkable: output, // declare whether the user may draw links from here
+          toSpot: spot, // declare where links may connect at this port
+          toLinkable: input, // declare whether the user may draw links to here
+          cursor: "pointer", // show a different cursor to indicate potential link point
+          mouseEnter: function(e, port) {
+            // the PORT argument will be this Shape
+            if (!e.diagram.isReadOnly) port.fill = "rgba(255,0,255,0.5)";
           },
-          new go.Binding("figure", "fig")
-        ),
-        // 创建文本
+          mouseLeave: function(e, port) {
+            port.fill = "transparent";
+          }
+        });
+      }
+
+      function textStyle() {
+        return {
+          font: "bold 11pt Helvetica, Arial, sans-serif",
+          stroke: "whitesmoke"
+        };
+      }
+
+      // define the Node templates for regular nodes
+
+      myDiagram.nodeTemplateMap.add(
+        "", // the default category
         $(
-          go.TextBlock,
-          "Default text",
-          {
-            margin: 10,
-            stroke: "white",
-            font: "bold 16px sans-serif"
-          },
-          new go.Binding("text", "name")
-        ),
-        // 创建图像
-        $(
-          go.Picture,
-          {
-            margin: 10,
-            width: 50,
-            height: 50,
-            background: "red"
-          },
-          new go.Binding("source")
+          go.Node,
+          "Table",
+          nodeStyle(),
+          // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+          $(
+            go.Panel,
+            "Auto",
+            $(
+              go.Shape,
+              "Rectangle",
+              {
+                fill: "#00A9C9",
+                strokeWidth: 0
+              },
+              new go.Binding("figure", "figure")
+            ),
+            $(
+              go.TextBlock,
+              textStyle(),
+              {
+                margin: 8,
+                maxSize: new go.Size(160, NaN),
+                wrap: go.TextBlock.WrapFit,
+                editable: true
+              },
+              new go.Binding("text").makeTwoWay()
+            )
+          ),
+          // four named ports, one on each side:
+          makePort("T", go.Spot.Top, go.Spot.TopSide, false, true),
+          makePort("L", go.Spot.Left, go.Spot.LeftSide, true, true),
+          makePort("R", go.Spot.Right, go.Spot.RightSide, true, true),
+          makePort("B", go.Spot.Bottom, go.Spot.BottomSide, true, false)
         )
       );
 
-      // 创建连接模板 --
-      myDiagram.linkTemplate = $(
-        go.Link,
-        {
-          routing: go.Link.Orthogonal,
-          corner: 5
-        },
-        $(go.Shape, { strokeWidth: 3, stroke: "#555" })
+      myDiagram.nodeTemplateMap.add(
+        "Conditional",
+        $(
+          go.Node,
+          "Table",
+          nodeStyle(),
+          // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+          $(
+            go.Panel,
+            "Auto",
+            $(
+              go.Shape,
+              "Diamond",
+              {
+                fill: "#00A9C9",
+                strokeWidth: 0
+              },
+              new go.Binding("figure", "figure")
+            ),
+            $(
+              go.TextBlock,
+              textStyle(),
+              {
+                margin: 8,
+                maxSize: new go.Size(160, NaN),
+                wrap: go.TextBlock.WrapFit,
+                editable: true
+              },
+              new go.Binding("text").makeTwoWay()
+            )
+          ),
+          // four named ports, one on each side:
+          makePort("T", go.Spot.Top, go.Spot.Top, false, true),
+          makePort("L", go.Spot.Left, go.Spot.Left, true, true),
+          makePort("R", go.Spot.Right, go.Spot.Right, true, true),
+          makePort("B", go.Spot.Bottom, go.Spot.Bottom, true, false)
+        )
       );
 
-      // 创建模型 -- Model
-      // let myModel = $(go.Model);
-      // let myModel = $(go.GraphLinksModel);
-      let myModel = $(go.TreeModel);
-      myModel.nodeDataArray = [
-        // Model / GraphLinkModel
-        // { name: "甲甲甲甲甲", source: "logo.png", key: "A" },
-        // { name: "乙乙乙乙乙", source: "logo.png", key: "B" },
-        // { name: "丙丙丙丙丙", source: "logo.png", key: "C" }
-        // treeModel
-        { key: "1", name: "Don Meow", source: "logo.png" },
-        { key: "2", parent: "1", name: "Demeter", source: "logo.png" },
-        { key: "3", parent: "1", name: "Copricat", source: "logo.png" },
-        { key: "4", parent: "3", name: "Jellylorum", source: "logo.png" },
-        { key: "5", parent: "3", name: "Alonzo", source: "logo.png" },
-        { key: "6", parent: "2", name: "Munkustrap", source: "logo.png" }
-      ];
-      // myModel.linkDataArray = [{ from: "A", to: "B" }, { from: "B", to: "C" }];
-      myDiagram.model = myModel;
+      myDiagram.nodeTemplateMap.add(
+        "Start",
+        $(
+          go.Node,
+          "Table",
+          nodeStyle(),
+          $(
+            go.Panel,
+            "Auto",
+            $(go.Shape, "Circle", {
+              minSize: new go.Size(40, 40),
+              fill: "#79C900",
+              strokeWidth: 0
+            }),
+            $(go.TextBlock, "Start", textStyle(), new go.Binding("text"))
+          ),
+          // three named ports, one on each side except the top, all output only:
+          makePort("L", go.Spot.Left, go.Spot.Left, true, false),
+          makePort("R", go.Spot.Right, go.Spot.Right, true, false),
+          makePort("B", go.Spot.Bottom, go.Spot.Bottom, true, false)
+        )
+      );
+
+      myDiagram.nodeTemplateMap.add(
+        "End",
+        $(
+          go.Node,
+          "Table",
+          nodeStyle(),
+          $(
+            go.Panel,
+            "Auto",
+            $(go.Shape, "Circle", {
+              minSize: new go.Size(40, 40),
+              fill: "#DC3C00",
+              strokeWidth: 0
+            }),
+            $(go.TextBlock, "End", textStyle(), new go.Binding("text"))
+          ),
+          // three named ports, one on each side except the bottom, all input only:
+          makePort("T", go.Spot.Top, go.Spot.Top, false, true),
+          makePort("L", go.Spot.Left, go.Spot.Left, false, true),
+          makePort("R", go.Spot.Right, go.Spot.Right, false, true)
+        )
+      );
+
+      myDiagram.nodeTemplateMap.add(
+        "Comment",
+        $(
+          go.Node,
+          "Auto",
+          nodeStyle(),
+          $(go.Shape, "File", {
+            fill: "#EFFAB4",
+            strokeWidth: 0
+          }),
+          $(
+            go.TextBlock,
+            textStyle(),
+            {
+              margin: 5,
+              maxSize: new go.Size(200, NaN),
+              wrap: go.TextBlock.WrapFit,
+              textAlign: "center",
+              editable: true,
+              font: "bold 12pt Helvetica, Arial, sans-serif",
+              stroke: "#454545"
+            },
+            new go.Binding("text").makeTwoWay()
+          )
+          // no ports, because no links are allowed to connect with a comment
+        )
+      );
+
+      // replace the default Link template in the linkTemplateMap
+      myDiagram.linkTemplate = $(
+        go.Link, // the whole link panel
+        {
+          routing: go.Link.AvoidsNodes,
+          curve: go.Link.JumpOver,
+          corner: 5,
+          toShortLength: 4,
+          relinkableFrom: true,
+          relinkableTo: true,
+          reshapable: true,
+          resegmentable: true,
+          // mouse-overs subtly highlight links:
+          mouseEnter: function(e, link) {
+            link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)";
+          },
+          mouseLeave: function(e, link) {
+            link.findObject("HIGHLIGHT").stroke = "transparent";
+          }
+        },
+        new go.Binding("points").makeTwoWay(),
+        $(
+          go.Shape, // the highlight shape, normally transparent
+          {
+            isPanelMain: true,
+            strokeWidth: 8,
+            stroke: "transparent",
+            name: "HIGHLIGHT"
+          }
+        ),
+        $(
+          go.Shape, // the link path shape
+          {
+            isPanelMain: true,
+            stroke: "gray",
+            strokeWidth: 2
+          }
+        ),
+        $(
+          go.Shape, // the arrowhead
+          {
+            toArrow: "standard",
+            strokeWidth: 0,
+            fill: "gray"
+          }
+        ),
+        $(
+          go.Panel,
+          "Auto", // the link label, normally not visible
+          {
+            visible: false,
+            name: "LABEL",
+            segmentIndex: 2,
+            segmentFraction: 0.5
+          },
+          new go.Binding("visible", "visible").makeTwoWay(),
+          $(
+            go.Shape,
+            "RoundedRectangle", // the label shape
+            {
+              fill: "#F8F8F8",
+              strokeWidth: 0
+            }
+          ),
+          $(
+            go.TextBlock,
+            "Yes", // the label
+            {
+              textAlign: "center",
+              font: "10pt helvetica, arial, sans-serif",
+              stroke: "#333333",
+              editable: true
+            },
+            new go.Binding("text").makeTwoWay()
+          )
+        )
+      );
+      //线生成事件
+      myDiagram.addDiagramListener("LinkDrawn", function(e) {
+        showLinkLabel(e);
+      });
+      // 线连接事件
+      myDiagram.addDiagramListener("LinkRelinked", function(e) {
+        showLinkLabel(e);
+      });
+      // Make link labels visible if coming out of a "conditional" node.
+      // This listener is called by the "LinkDrawn" and "LinkRelinked" DiagramEvents.
+      function showLinkLabel(e) {
+        console.log(e);
+        let label = e.subject.findObject("LABEL");
+        if (label !== null)
+          label.visible = e.subject.fromNode.data.figure === "Diamond";
+      }
+
+      // temporary links used by LinkingTool and RelinkingTool are also orthogonal:
+      myDiagram.toolManager.linkingTool.temporaryLink.routing =
+        go.Link.Orthogonal;
+      myDiagram.toolManager.relinkingTool.temporaryLink.routing =
+        go.Link.Orthogonal;
+
+      load(); // load an initial diagram from some JSON text
+
+      // initialize the Palette that is on the left side of the page
+      let myPalette = $(
+        go.Palette,
+        "myPaletteDiv", // must name or refer to the DIV HTML element
+        {
+          scrollsPageOnFocus: false,
+          nodeTemplateMap: myDiagram.nodeTemplateMap, // share the templates used by myDiagram
+          model: new go.GraphLinksModel([
+            // specify the contents of the Palette
+            {
+              category: "Start",
+              text: "Start"
+            },
+            {
+              text: "Step"
+            },
+            {
+              category: "Conditional",
+              text: "???"
+            },
+            {
+              category: "End",
+              text: "End"
+            },
+            {
+              category: "Comment",
+              text: "Comment"
+            }
+          ])
+        }
+      );
+      function load() {
+        myDiagram.model = go.Model.fromJson({
+          class: "go.GraphLinksModel",
+          linkFromPortIdProperty: "fromPort",
+          linkToPortIdProperty: "toPort",
+          nodeDataArray: [
+            {
+              category: "Comment",
+              loc: "360 -10",
+              text: "Kookie Brittle",
+              key: -13
+            },
+            {
+              key: -1,
+              category: "Start",
+              loc: "175 0",
+              text: "Start"
+            },
+            {
+              key: 0,
+              loc: "-5 75",
+              text: "Preheat oven to 375 F"
+            },
+            {
+              key: 1,
+              loc: "175 100",
+              text:
+                "In a bowl, blend: 1 cup margarine, 1.5 teaspoon vanilla, 1 teaspoon salt"
+            },
+            {
+              key: 2,
+              loc: "175 200",
+              text: "Gradually beat in 1 cup sugar and 2 cups sifted flour"
+            },
+            {
+              key: 3,
+              loc: "175 290",
+              text: "Mix in 6 oz (1 cup) Nestle's Semi-Sweet Chocolate Morsels"
+            },
+            {
+              key: 4,
+              loc: "175 380",
+              text: "Press evenly into ungreased 15x10x1 pan"
+            },
+            {
+              key: 5,
+              loc: "355 85",
+              text: "Finely chop 1/2 cup of your choice of nuts"
+            },
+            {
+              key: 6,
+              loc: "175 450",
+              text: "Sprinkle nuts on top"
+            },
+            {
+              key: 7,
+              loc: "175 515",
+              text: "Bake for 25 minutes and let cool"
+            },
+            {
+              key: 8,
+              loc: "175 585",
+              text: "Cut into rectangular grid"
+            },
+            {
+              key: -2,
+              category: "End",
+              loc: "175 660",
+              text: "Enjoy!"
+            }
+          ],
+          linkDataArray: [
+            {
+              from: 1,
+              to: 2,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 2,
+              to: 3,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 3,
+              to: 4,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 4,
+              to: 6,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 6,
+              to: 7,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 7,
+              to: 8,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 8,
+              to: -2,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: -1,
+              to: 0,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: -1,
+              to: 1,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: -1,
+              to: 5,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 5,
+              to: 4,
+              fromPort: "B",
+              toPort: "T"
+            },
+            {
+              from: 0,
+              to: 4,
+              fromPort: "B",
+              toPort: "T"
+            }
+          ]
+        });
+      }
     }
   }
 };
