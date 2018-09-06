@@ -1,7 +1,7 @@
 <template>
-  <div style="width: 100%; display: flex; justify-content: space-between">
-    <div id="myPaletteDiv" style="width: 100px; margin-right: 2px; background-color: whitesmoke; border: solid 1px black"></div>
-    <div id="myDiagramDiv" style="flex-grow: 1; height: 750px; border: solid 1px black"></div>
+  <div class="flow_group">
+    <div id="myPaletteDiv" class="myPaletteDiv"></div>
+    <div id="myDiagramDiv" class="myDiagramDiv"></div>
   </div>
 </template>
 
@@ -10,7 +10,7 @@ export default {
   mounted() {
     this.init();
   },
-  methods: {
+  computed: {
     //定义一个模板
     $() {
       return go.GraphObject.make; // 定义一个模板
@@ -18,64 +18,111 @@ export default {
     // 定义一个画布
     myDiagram() {
       return go.GraphObject.make(go.Diagram, "myDiagramDiv", {
-        initialContentAlignment: go.Spot.Center, //画布初始位置
-        allowDrop: true, //
-        scrollsPageOnFocus: false, //
-        "undoManager.isEnabled": true // 撤销和重做
+        // initialContentAlignment: go.Spot.Center, //画布初始位置
+        // allowDrop: true, //
+        // scrollsPageOnFocus: false, //
+        // "undoManager.isEnabled": true // 撤销和重做
+
+        initialContentAlignment: go.Spot.Center,
+        allowDrop: true,
+        scrollsPageOnFocus: false, //滚动页焦点
+        "draggingTool.dragsLink": true, //拖动工具拖动链接
+        "draggingTool.isGridSnapEnabled": true, //拖动工具已启用网格捕捉
+        "linkingTool.isUnconnectedLinkValid": false, //链接工具未连接链接有效
+        "linkingTool.portGravity": 200, //链接工具端口重力
+        "relinkingTool.isUnconnectedLinkValid": true, //重新连接工具未连接链接有效
+        "relinkingTool.portGravity": 250, //重新连接工具端口重力
+        "relinkingTool.fromHandleArchetype": go.GraphObject.make(
+          go.Shape,
+          "Diamond",
+          {
+            segmentIndex: 0,
+            cursor: "pointer",
+            desiredSize: new go.Size(8, 8),
+            fill: "tomato",
+            stroke: "darkred"
+          }
+        ),
+        "relinkingTool.toHandleArchetype": go.GraphObject.make(
+          go.Shape,
+          "Diamond",
+          {
+            segmentIndex: -1,
+            cursor: "pointer",
+            desiredSize: new go.Size(8, 8),
+            fill: "darkred",
+            stroke: "tomato"
+          }
+        ),
+        "linkReshapingTool.handleArchetype": go.GraphObject.make(
+          go.Shape,
+          "Diamond",
+          {
+            desiredSize: new go.Size(7, 7),
+            fill: "lightblue",
+            stroke: "deepskyblue"
+          }
+        ),
+        // rotatingTool: go.GraphObject.make(TopRotatingTool),
+        "rotatingTool.snapAngleMultiple": 15,
+        "rotatingTool.snapAngleEpsilon": 15,
+        "undoManager.isEnabled": true
       });
-    },
+    }
+  },
+  methods: {
     // 初始化
     init() {
-      const $ = this.$();
-      const myDiagram = this.myDiagram();
-      console.log(this.$);
+      const $ = this.$;
+      const myDiagram = this.myDiagram;
+      // console.log(this.$);
 
-      // helper definitions for node templates
+      // 节点模板的助手定义
 
       function nodeStyle() {
         return [
-          // The Node.location comes from the "loc" property of the node data,
-          // converted by the Point.parse static method.
-          // If the Node.location is changed, it updates the "loc" property of the node data,
-          // converting back using the Point.stringify static method.
+          //节点。位置来自节点数据的“loc”属性，
+          //按此转换。解析静态方法。
+          //如果节点。位置改变，更新节点数据的loc属性，
+          //使用点返回。stringify静态方法。
           new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
             go.Point.stringify
           ),
           {
-            // the Node.location is at the center of each node
+            // 节点。位置在每个节点的中心
             locationSpot: go.Spot.Center
           }
         ];
       }
 
-      // Define a function for creating a "port" that is normally transparent.
-      // The "name" is used as the GraphObject.portId,
-      // the "align" is used to determine where to position the port relative to the body of the node,
-      // the "spot" is used to control how links connect with the port and whether the port
-      // stretches along the side of the node,
-      // and the boolean "output" and "input" arguments control whether the user can draw links from or to the port.
+      //定义一个函数来创建一个通常透明的“端口”。
+      //用“name”作为标语牌。
+      //“align”用于确定端口相对于节点主体的位置，
+      //“spot”用于控制链接如何与端口连接，以及端口是否连接
+      //沿着节点的一侧延伸，
+      //和boolean“output”和“input”参数控制用户是否可以从端口绘制链接。
       function makePort(name, align, spot, output, input) {
         let horizontal =
           align.equals(go.Spot.Top) || align.equals(go.Spot.Bottom);
-        // the port is basically just a transparent rectangle that stretches along the side of the node,
-        // and becomes colored when the mouse passes over it
+        //端口基本上就是一个透明的矩形，它沿着节点的一侧延伸，
+        //当鼠标经过它时，它就会变成彩色的
         return $(go.Shape, {
-          fill: "transparent", // changed to a color in the mouseEnter event handler
-          strokeWidth: 0, // no stroke
-          width: horizontal ? NaN : 8, // if not stretching horizontally, just 8 wide
-          height: !horizontal ? NaN : 8, // if not stretching vertically, just 8 tall
-          alignment: align, // align the port on the main Shape
+          fill: "transparent", // 在mouseEnter事件处理程序中更改为颜色
+          strokeWidth: 0, // 没有中风
+          width: horizontal ? NaN : 8, // 如果不是水平拉伸，也就是8宽
+          height: !horizontal ? NaN : 8, // 如果不是垂直拉伸，只要8英尺
+          alignment: align, // 将端口对准主形状
           stretch: horizontal
             ? go.GraphObject.Horizontal
             : go.GraphObject.Vertical,
-          portId: name, // declare this object to be a "port"
-          fromSpot: spot, // declare where links may connect at this port
-          fromLinkable: output, // declare whether the user may draw links from here
-          toSpot: spot, // declare where links may connect at this port
-          toLinkable: input, // declare whether the user may draw links to here
-          cursor: "pointer", // show a different cursor to indicate potential link point
+          portId: name, // 声明此对象为“端口”
+          fromSpot: spot, // 声明连接可能在此端口连接的位置
+          fromLinkable: output, // 声明用户是否可以从这里绘制链接
+          toSpot: spot, // 声明连接可能在此端口连接的位置
+          toLinkable: input, // 声明用户是否可以在此处绘制链接
+          cursor: "pointer", // 显示一个不同的光标来指示潜在的链接点
           mouseEnter: function(e, port) {
-            // the PORT argument will be this Shape
+            // 端口参数将是这个形状
             if (!e.diagram.isReadOnly) port.fill = "rgba(255,0,255,0.5)";
           },
           mouseLeave: function(e, port) {
@@ -84,6 +131,7 @@ export default {
         });
       }
 
+      // 文本样式
       function textStyle() {
         return {
           font: "bold 11pt Helvetica, Arial, sans-serif",
@@ -91,15 +139,15 @@ export default {
         };
       }
 
-      // define the Node templates for regular nodes
+      // 为常规节点定义节点模板
 
       myDiagram.nodeTemplateMap.add(
-        "", // the default category
+        "Step",
         $(
           go.Node,
           "Table",
           nodeStyle(),
-          // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+          // 主要对象是一个面板，它围绕着一个矩形形状的文本块
           $(
             go.Panel,
             "Auto",
@@ -124,7 +172,7 @@ export default {
               new go.Binding("text").makeTwoWay()
             )
           ),
-          // four named ports, one on each side:
+          // 四个命名端口，每边一个:
           makePort("T", go.Spot.Top, go.Spot.TopSide, false, true),
           makePort("L", go.Spot.Left, go.Spot.LeftSide, true, true),
           makePort("R", go.Spot.Right, go.Spot.RightSide, true, true),
@@ -133,12 +181,12 @@ export default {
       );
 
       myDiagram.nodeTemplateMap.add(
-        "Conditional",
+        "Condition",
         $(
           go.Node,
           "Table",
           nodeStyle(),
-          // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+          // 主要对象是一个面板，它围绕着一个矩形形状的文本块
           $(
             go.Panel,
             "Auto",
@@ -163,7 +211,7 @@ export default {
               new go.Binding("text").makeTwoWay()
             )
           ),
-          // four named ports, one on each side:
+          // 四个命名端口，每边一个:
           makePort("T", go.Spot.Top, go.Spot.Top, false, true),
           makePort("L", go.Spot.Left, go.Spot.Left, true, true),
           makePort("R", go.Spot.Right, go.Spot.Right, true, true),
@@ -187,7 +235,7 @@ export default {
             }),
             $(go.TextBlock, "Start", textStyle(), new go.Binding("text"))
           ),
-          // three named ports, one on each side except the top, all output only:
+          // 三个命名端口，每边一个，除了底部，全部只输入:
           makePort("L", go.Spot.Left, go.Spot.Left, true, false),
           makePort("R", go.Spot.Right, go.Spot.Right, true, false),
           makePort("B", go.Spot.Bottom, go.Spot.Bottom, true, false)
@@ -210,7 +258,7 @@ export default {
             }),
             $(go.TextBlock, "End", textStyle(), new go.Binding("text"))
           ),
-          // three named ports, one on each side except the bottom, all input only:
+          // 三个命名端口，每边一个，除了底部，全部只输入:
           makePort("T", go.Spot.Top, go.Spot.Top, false, true),
           makePort("L", go.Spot.Left, go.Spot.Left, false, true),
           makePort("R", go.Spot.Right, go.Spot.Right, false, true)
@@ -224,7 +272,7 @@ export default {
           "Auto",
           nodeStyle(),
           $(go.Shape, "File", {
-            fill: "#EFFAB4",
+            fill: "#42b983",
             strokeWidth: 0
           }),
           $(
@@ -236,18 +284,17 @@ export default {
               wrap: go.TextBlock.WrapFit,
               textAlign: "center",
               editable: true,
-              font: "bold 12pt Helvetica, Arial, sans-serif",
-              stroke: "#454545"
+              font: "bold 12pt Helvetica, Arial, sans-serif"
             },
             new go.Binding("text").makeTwoWay()
           )
-          // no ports, because no links are allowed to connect with a comment
+          // 没有端口，因为不允许连接到注释
         )
       );
 
-      // replace the default Link template in the linkTemplateMap
+      // 替换linkTemplateMap中的默认链接模板
       myDiagram.linkTemplate = $(
-        go.Link, // the whole link panel
+        go.Link, // 整个链接面板
         {
           routing: go.Link.AvoidsNodes,
           curve: go.Link.JumpOver,
@@ -257,7 +304,7 @@ export default {
           relinkableTo: true,
           reshapable: true,
           resegmentable: true,
-          // mouse-overs subtly highlight links:
+          // 鼠标巧妙地移动:突出链接:
           mouseEnter: function(e, link) {
             link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)";
           },
@@ -267,7 +314,7 @@ export default {
         },
         new go.Binding("points").makeTwoWay(),
         $(
-          go.Shape, // the highlight shape, normally transparent
+          go.Shape, // 高光形状，通常是透明的
           {
             isPanelMain: true,
             strokeWidth: 8,
@@ -276,7 +323,7 @@ export default {
           }
         ),
         $(
-          go.Shape, // the link path shape
+          go.Shape, // 链接路径形状
           {
             isPanelMain: true,
             stroke: "gray",
@@ -284,7 +331,7 @@ export default {
           }
         ),
         $(
-          go.Shape, // the arrowhead
+          go.Shape, // 箭头
           {
             toArrow: "standard",
             strokeWidth: 0,
@@ -293,7 +340,7 @@ export default {
         ),
         $(
           go.Panel,
-          "Auto", // the link label, normally not visible
+          "Auto", // 链接标签，通常不可见
           {
             visible: false,
             name: "LABEL",
@@ -303,7 +350,7 @@ export default {
           new go.Binding("visible", "visible").makeTwoWay(),
           $(
             go.Shape,
-            "RoundedRectangle", // the label shape
+            "RoundedRectangle", // 标签的形状
             {
               fill: "#F8F8F8",
               strokeWidth: 0
@@ -311,7 +358,7 @@ export default {
           ),
           $(
             go.TextBlock,
-            "Yes", // the label
+            "Yes", // 标签
             {
               textAlign: "center",
               font: "10pt helvetica, arial, sans-serif",
@@ -325,59 +372,63 @@ export default {
       //线生成事件
       myDiagram.addDiagramListener("LinkDrawn", function(e) {
         showLinkLabel(e);
+        console.log(e);
       });
       // 线连接事件
       myDiagram.addDiagramListener("LinkRelinked", function(e) {
         showLinkLabel(e);
-      });
-      // Make link labels visible if coming out of a "conditional" node.
-      // This listener is called by the "LinkDrawn" and "LinkRelinked" DiagramEvents.
-      function showLinkLabel(e) {
         console.log(e);
+      });
+      myDiagram.addDiagramListener("ObjectDoubleClicked", function(e, node) {
+        console.log(e);
+        console.log(node);
+      });
+      // 如果来自“条件”节点，则使链接标签可见。
+      // 这个侦听器由“LinkDrawn”和“LinkRelinked”DiagramEvents调用。
+      function showLinkLabel(e) {
         let label = e.subject.findObject("LABEL");
+        console.log(label);
         if (label !== null)
           label.visible = e.subject.fromNode.data.figure === "Diamond";
       }
 
       // temporary links used by LinkingTool and RelinkingTool are also orthogonal:
+      // 链接工具和链接工具使用的临时链接也是正交的
       myDiagram.toolManager.linkingTool.temporaryLink.routing =
         go.Link.Orthogonal;
       myDiagram.toolManager.relinkingTool.temporaryLink.routing =
         go.Link.Orthogonal;
 
-      load(); // load an initial diagram from some JSON text
-
-      // initialize the Palette that is on the left side of the page
-      let myPalette = $(
-        go.Palette,
-        "myPaletteDiv", // must name or refer to the DIV HTML element
-        {
-          scrollsPageOnFocus: false,
-          nodeTemplateMap: myDiagram.nodeTemplateMap, // share the templates used by myDiagram
-          model: new go.GraphLinksModel([
-            // specify the contents of the Palette
-            {
-              category: "Start",
-              text: "Start"
-            },
-            {
-              text: "Step"
-            },
-            {
-              category: "Conditional",
-              text: "???"
-            },
-            {
-              category: "End",
-              text: "End"
-            },
-            {
-              category: "Comment",
-              text: "Comment"
-            }
-          ])
-        }
-      );
+      // 初始化页面左侧的调色板
+      let myPalette = $(go.Palette, "myPaletteDiv", {
+        scrollsPageOnFocus: false,
+        nodeTemplateMap: myDiagram.nodeTemplateMap, // 共享myDiagram使用的模板
+        model: new go.GraphLinksModel([
+          // 指定调色板的内容
+          {
+            category: "Start",
+            text: " 开始"
+          },
+          {
+            category: "Step",
+            text: "步骤"
+          },
+          {
+            category: "Condition",
+            text: "条件"
+          },
+          {
+            category: "End",
+            text: "结束"
+          },
+          {
+            category: "Comment",
+            text: "说明"
+          }
+        ])
+      });
+      load(); //
+      // 初始化数据
       function load() {
         myDiagram.model = go.Model.fromJson({
           class: "go.GraphLinksModel",
@@ -385,144 +436,19 @@ export default {
           linkToPortIdProperty: "toPort",
           nodeDataArray: [
             {
-              category: "Comment",
-              loc: "360 -10",
-              text: "Kookie Brittle",
-              key: -13
-            },
-            {
-              key: -1,
               category: "Start",
-              loc: "175 0",
-              text: "Start"
+              loc: "0 0",
+              text: "初始化",
+              key: 0
             },
             {
-              key: 0,
-              loc: "-5 75",
-              text: "Preheat oven to 375 F"
-            },
-            {
-              key: 1,
-              loc: "175 100",
-              text:
-                "In a bowl, blend: 1 cup margarine, 1.5 teaspoon vanilla, 1 teaspoon salt"
-            },
-            {
-              key: 2,
-              loc: "175 200",
-              text: "Gradually beat in 1 cup sugar and 2 cups sifted flour"
-            },
-            {
-              key: 3,
-              loc: "175 290",
-              text: "Mix in 6 oz (1 cup) Nestle's Semi-Sweet Chocolate Morsels"
-            },
-            {
-              key: 4,
-              loc: "175 380",
-              text: "Press evenly into ungreased 15x10x1 pan"
-            },
-            {
-              key: 5,
-              loc: "355 85",
-              text: "Finely chop 1/2 cup of your choice of nuts"
-            },
-            {
-              key: 6,
-              loc: "175 450",
-              text: "Sprinkle nuts on top"
-            },
-            {
-              key: 7,
-              loc: "175 515",
-              text: "Bake for 25 minutes and let cool"
-            },
-            {
-              key: 8,
-              loc: "175 585",
-              text: "Cut into rectangular grid"
-            },
-            {
-              key: -2,
-              category: "End",
-              loc: "175 660",
-              text: "Enjoy!"
+              category: "Condition",
+              loc: "0 100",
+              text: "条件",
+              key: 1
             }
           ],
-          linkDataArray: [
-            {
-              from: 1,
-              to: 2,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 2,
-              to: 3,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 3,
-              to: 4,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 4,
-              to: 6,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 6,
-              to: 7,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 7,
-              to: 8,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 8,
-              to: -2,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: -1,
-              to: 0,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: -1,
-              to: 1,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: -1,
-              to: 5,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 5,
-              to: 4,
-              fromPort: "B",
-              toPort: "T"
-            },
-            {
-              from: 0,
-              to: 4,
-              fromPort: "B",
-              toPort: "T"
-            }
-          ]
+          linkDataArray: [{ from: 0, to: 1, fromPort: "B", toPort: "T" }]
         });
       }
     }
@@ -530,12 +456,29 @@ export default {
 };
 </script>
 
-<style lang="scss">
-.xFlow {
+<style lang="scss" scoped>
+.flow_group {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
+  border: 1px solid #333;
 }
-#myDiagramDiv {
-  background-color: #dae4e4;
+
+/* 左侧 */
+.myPaletteDiv {
+  box-sizing: border-box;
+  width: 150px;
+  border-right: 1px solid #ccc;
+  background-color: #eee;
+}
+
+/* 右侧 */
+.myDiagramDiv {
+  flex-grow: 1;
+  box-sizing: border-box;
+  background-color: #fff;
 }
 </style>
