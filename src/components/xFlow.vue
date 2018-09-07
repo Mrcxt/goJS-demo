@@ -1,12 +1,17 @@
 <template>
-  <div class="flow_group">
-    <div id="myPaletteDiv" class="myPaletteDiv"></div>
-    <div id="myDiagramDiv" class="myDiagramDiv"></div>
+  <div class="xFlow">
+    <div class="flow_group">
+      <div id="myPaletteDiv" class="myPaletteDiv"></div>
+      <div id="myDiagramDiv" class="myDiagramDiv"></div>
+    </div>
   </div>
 </template>
 
 <script>
 export default {
+  data() {
+    return {};
+  },
   mounted() {
     this.init();
   },
@@ -18,10 +23,7 @@ export default {
     // 定义一个画布
     myDiagram() {
       return go.GraphObject.make(go.Diagram, "myDiagramDiv", {
-        // initialContentAlignment: go.Spot.Center, //画布初始位置
-        // allowDrop: true, //
-        // scrollsPageOnFocus: false, //
-        // "undoManager.isEnabled": true // 撤销和重做
+        "undoManager.isEnabled": true, // 撤销和重做
 
         initialContentAlignment: go.Spot.Center,
         allowDrop: true,
@@ -73,13 +75,13 @@ export default {
   methods: {
     // 初始化
     init() {
+      let _this = this;
       const $ = this.$;
       const myDiagram = this.myDiagram;
-      // console.log(this.$);
 
       // 节点模板的助手定义
 
-      function nodeStyle() {
+      let nodeStyle = () => {
         return [
           //节点。位置来自节点数据的“loc”属性，
           //按此转换。解析静态方法。
@@ -93,7 +95,7 @@ export default {
             locationSpot: go.Spot.Center
           }
         ];
-      }
+      };
 
       //定义一个函数来创建一个通常透明的“端口”。
       //用“name”作为标语牌。
@@ -101,7 +103,7 @@ export default {
       //“spot”用于控制链接如何与端口连接，以及端口是否连接
       //沿着节点的一侧延伸，
       //和boolean“output”和“input”参数控制用户是否可以从端口绘制链接。
-      function makePort(name, align, spot, output, input) {
+      let makePort = (name, align, spot, output, input) => {
         let horizontal =
           align.equals(go.Spot.Top) || align.equals(go.Spot.Bottom);
         //端口基本上就是一个透明的矩形，它沿着节点的一侧延伸，
@@ -121,23 +123,23 @@ export default {
           toSpot: spot, // 声明连接可能在此端口连接的位置
           toLinkable: input, // 声明用户是否可以在此处绘制链接
           cursor: "pointer", // 显示一个不同的光标来指示潜在的链接点
-          mouseEnter: function(e, port) {
-            // 端口参数将是这个形状
+          mouseEnter: (e, port) => {
+            // 连接端口参数的形状
             if (!e.diagram.isReadOnly) port.fill = "rgba(255,0,255,0.5)";
           },
-          mouseLeave: function(e, port) {
+          mouseLeave: (e, port) => {
             port.fill = "transparent";
           }
         });
-      }
+      };
 
       // 文本样式
-      function textStyle() {
+      let textStyle = () => {
         return {
           font: "bold 11pt Helvetica, Arial, sans-serif",
           stroke: "whitesmoke"
         };
-      }
+      };
 
       // 为常规节点定义节点模板
 
@@ -229,11 +231,17 @@ export default {
             go.Panel,
             "Auto",
             $(go.Shape, "Circle", {
-              minSize: new go.Size(40, 40),
+              minSize: new go.Size(60, 60),
               fill: "#79C900",
               strokeWidth: 0
             }),
-            $(go.TextBlock, "Start", textStyle(), new go.Binding("text"))
+            $(
+              go.TextBlock,
+              "Start",
+              textStyle(),
+              { editable: true },
+              new go.Binding("text")
+            )
           ),
           // 三个命名端口，每边一个，除了底部，全部只输入:
           makePort("L", go.Spot.Left, go.Spot.Left, true, false),
@@ -252,11 +260,17 @@ export default {
             go.Panel,
             "Auto",
             $(go.Shape, "Circle", {
-              minSize: new go.Size(40, 40),
+              minSize: new go.Size(60, 60),
               fill: "#DC3C00",
               strokeWidth: 0
             }),
-            $(go.TextBlock, "End", textStyle(), new go.Binding("text"))
+            $(
+              go.TextBlock,
+              "End",
+              textStyle(),
+              { editable: true },
+              new go.Binding("text")
+            )
           ),
           // 三个命名端口，每边一个，除了底部，全部只输入:
           makePort("T", go.Spot.Top, go.Spot.Top, false, true),
@@ -305,10 +319,10 @@ export default {
           reshapable: true,
           resegmentable: true,
           // 鼠标巧妙地移动:突出链接:
-          mouseEnter: function(e, link) {
+          mouseEnter: (e, link) => {
             link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)";
           },
-          mouseLeave: function(e, link) {
+          mouseLeave: (e, link) => {
             link.findObject("HIGHLIGHT").stroke = "transparent";
           }
         },
@@ -370,27 +384,23 @@ export default {
         )
       );
       //线生成事件
-      myDiagram.addDiagramListener("LinkDrawn", function(e) {
+      myDiagram.addDiagramListener("LinkDrawn", e => {
         showLinkLabel(e);
-        console.log(e);
       });
       // 线连接事件
-      myDiagram.addDiagramListener("LinkRelinked", function(e) {
+      myDiagram.addDiagramListener("LinkRelinked", e => {
         showLinkLabel(e);
-        console.log(e);
       });
-      myDiagram.addDiagramListener("ObjectDoubleClicked", function(e, node) {
+      myDiagram.addDiagramListener("ObjectDoubleClicked", e => {
         console.log(e);
-        console.log(node);
       });
       // 如果来自“条件”节点，则使链接标签可见。
       // 这个侦听器由“LinkDrawn”和“LinkRelinked”DiagramEvents调用。
-      function showLinkLabel(e) {
+      let showLinkLabel = e => {
         let label = e.subject.findObject("LABEL");
-        console.log(label);
         if (label !== null)
           label.visible = e.subject.fromNode.data.figure === "Diamond";
-      }
+      };
 
       // temporary links used by LinkingTool and RelinkingTool are also orthogonal:
       // 链接工具和链接工具使用的临时链接也是正交的
@@ -427,9 +437,8 @@ export default {
           }
         ])
       });
-      load(); //
       // 初始化数据
-      function load() {
+      let load = () => {
         myDiagram.model = go.Model.fromJson({
           class: "go.GraphLinksModel",
           linkFromPortIdProperty: "fromPort",
@@ -450,13 +459,18 @@ export default {
           ],
           linkDataArray: [{ from: 0, to: 1, fromPort: "B", toPort: "T" }]
         });
-      }
+      };
+      load(); //
     }
   }
 };
 </script>
 
 <style lang="scss" scoped>
+.xFlow {
+  width: 100%;
+  height: 100%;
+}
 .flow_group {
   display: flex;
   align-items: stretch;

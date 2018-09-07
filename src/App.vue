@@ -5,7 +5,6 @@
 </template>
 
 <script>
-import "normalize.css";
 import xFlow from "./components/xFlow";
 export default {
   name: "app",
