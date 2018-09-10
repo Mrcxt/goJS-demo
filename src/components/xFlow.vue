@@ -1,19 +1,60 @@
 <template>
   <div class="xFlow">
+    <!-- save -->
+    <div class="save">
+      <el-button type="primary" plain @click="SaveToJson">保存</el-button>
+      <el-button type="danger" plain @click="Cancel">取消</el-button>
+    </div>
+
+    <!-- flow -->
     <div class="flow_group">
       <div id="myPaletteDiv" class="myPaletteDiv"></div>
       <div id="myDiagramDiv" class="myDiagramDiv"></div>
     </div>
+
+    <!-- dialog -->
+    <el-dialog title="填写信息" width="500px" modal close-on-press-escape :close-on-click-modal="false" :lock-scroll="false" :visible.sync="dialogFormVisible">
+      <el-form :model="form" label-width="100px" label-position="left">
+        <el-form-item label="名称">
+          <el-input v-model="form.name"></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogFormVisible = false">取 消</el-button>
+        <el-button type="primary" @click="FormToDiagram">确 定</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 export default {
   data() {
-    return {};
+    return {
+      dialogFormVisible: false,
+      form: {
+        name: "",
+        region: "",
+        date1: "",
+        date2: "",
+        delivery: false,
+        type: [],
+        resource: "",
+        desc: ""
+      },
+      DiagramData: {
+        saveData: null,
+        key: null
+      }
+    };
   },
   mounted() {
+    // 初始化
     this.init();
+    //
+    this.load();
+    //
+    this.DiagramGrid();
   },
   computed: {
     //定义一个模板
@@ -158,7 +199,8 @@ export default {
               "Rectangle",
               {
                 fill: "#00A9C9",
-                strokeWidth: 0
+                strokeWidth: 1,
+                margin: -10
               },
               new go.Binding("figure", "figure")
             ),
@@ -169,7 +211,7 @@ export default {
                 margin: 8,
                 maxSize: new go.Size(160, NaN),
                 wrap: go.TextBlock.WrapFit,
-                editable: true
+                editable: false
               },
               new go.Binding("text").makeTwoWay()
             )
@@ -197,7 +239,7 @@ export default {
               "Diamond",
               {
                 fill: "#00A9C9",
-                strokeWidth: 0
+                strokeWidth: 1
               },
               new go.Binding("figure", "figure")
             ),
@@ -208,7 +250,7 @@ export default {
                 margin: 8,
                 maxSize: new go.Size(160, NaN),
                 wrap: go.TextBlock.WrapFit,
-                editable: true
+                editable: false
               },
               new go.Binding("text").makeTwoWay()
             )
@@ -226,6 +268,7 @@ export default {
         $(
           go.Node,
           "Table",
+          { deletable: false },
           nodeStyle(),
           $(
             go.Panel,
@@ -233,13 +276,13 @@ export default {
             $(go.Shape, "Circle", {
               minSize: new go.Size(60, 60),
               fill: "#79C900",
-              strokeWidth: 0
+              strokeWidth: 1
             }),
             $(
               go.TextBlock,
               "Start",
               textStyle(),
-              { editable: true },
+              { editable: false },
               new go.Binding("text")
             )
           ),
@@ -262,13 +305,13 @@ export default {
             $(go.Shape, "Circle", {
               minSize: new go.Size(60, 60),
               fill: "#DC3C00",
-              strokeWidth: 0
+              strokeWidth: 1
             }),
             $(
               go.TextBlock,
               "End",
               textStyle(),
-              { editable: true },
+              { editable: false },
               new go.Binding("text")
             )
           ),
@@ -287,7 +330,7 @@ export default {
           nodeStyle(),
           $(go.Shape, "File", {
             fill: "#42b983",
-            strokeWidth: 0
+            strokeWidth: 1
           }),
           $(
             go.TextBlock,
@@ -297,7 +340,7 @@ export default {
               maxSize: new go.Size(200, NaN),
               wrap: go.TextBlock.WrapFit,
               textAlign: "center",
-              editable: true,
+              editable: false,
               font: "bold 12pt Helvetica, Arial, sans-serif"
             },
             new go.Binding("text").makeTwoWay()
@@ -377,7 +420,7 @@ export default {
               textAlign: "center",
               font: "10pt helvetica, arial, sans-serif",
               stroke: "#333333",
-              editable: true
+              editable: false
             },
             new go.Binding("text").makeTwoWay()
           )
@@ -393,6 +436,10 @@ export default {
       });
       myDiagram.addDiagramListener("ObjectDoubleClicked", e => {
         console.log(e);
+        console.log(e.subject.part.data);
+        this.form.name = e.subject.part.data.text;
+        this.DiagramData.key = e.subject.part.data.key;
+        this.dialogFormVisible = true;
       });
       // 如果来自“条件”节点，则使链接标签可见。
       // 这个侦听器由“LinkDrawn”和“LinkRelinked”DiagramEvents调用。
@@ -412,6 +459,7 @@ export default {
       // 初始化页面左侧的调色板
       let myPalette = $(go.Palette, "myPaletteDiv", {
         scrollsPageOnFocus: false,
+        // "grid.visible" :true,
         nodeTemplateMap: myDiagram.nodeTemplateMap, // 共享myDiagram使用的模板
         model: new go.GraphLinksModel([
           // 指定调色板的内容
@@ -420,12 +468,12 @@ export default {
             text: " 开始"
           },
           {
-            category: "Step",
-            text: "步骤"
-          },
-          {
             category: "Condition",
             text: "条件"
+          },
+          {
+            category: "Step",
+            text: "内容"
           },
           {
             category: "End",
@@ -433,34 +481,87 @@ export default {
           },
           {
             category: "Comment",
-            text: "说明"
+            text: "标签"
           }
         ])
       });
-      // 初始化数据
-      let load = () => {
-        myDiagram.model = go.Model.fromJson({
-          class: "go.GraphLinksModel",
-          linkFromPortIdProperty: "fromPort",
-          linkToPortIdProperty: "toPort",
-          nodeDataArray: [
-            {
-              category: "Start",
-              loc: "0 0",
-              text: "初始化",
-              key: 0
-            },
-            {
-              category: "Condition",
-              loc: "0 100",
-              text: "条件",
-              key: 1
-            }
-          ],
-          linkDataArray: [{ from: 0, to: 1, fromPort: "B", toPort: "T" }]
+    },
+    // 网格背景
+    DiagramGrid() {
+      this.myDiagram.grid.visible = true;
+      this.myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
+      this.myDiagram.toolManager.resizingTool.isGridSnapEnabled = true;
+      this.myDiagram.toolManager.draggingTool.gridSnapCellSize = new go.Size(
+        10,
+        10
+      );
+      // 修改颜色及网格大小
+      this.myDiagram.grid = this.$(
+        go.Panel,
+        go.Panel.Grid,
+        { gridCellSize: new go.Size(60, 60) },
+        this.$(go.Shape, "LineH", { stroke: "#ddd" }),
+        this.$(go.Shape, "LineV", { stroke: "#ddd" })
+      );
+    },
+    //修改节点数据
+    FormToDiagram() {
+      let data = this.myDiagram.model.findNodeDataForKey(this.DiagramData.key);
+      this.myDiagram.model.setDataProperty(data, "text", this.form.name);
+      this.dialogFormVisible = false;
+    },
+    // 初始化数据
+    load() {
+      this.myDiagram.model = go.Model.fromJson({
+        class: "go.GraphLinksModel",
+        linkFromPortIdProperty: "fromPort",
+        linkToPortIdProperty: "toPort",
+        nodeDataArray: [
+          {
+            category: "Start",
+            loc: "0 0",
+            text: "初始化",
+            key: 0
+          },
+          {
+            category: "Condition",
+            loc: "0 100",
+            text: "条件",
+            key: 1
+          }
+        ],
+        linkDataArray: [{ from: 0, to: 1, fromPort: "B", toPort: "T" }]
+      });
+    },
+    // 保存数据
+    SaveToJson() {
+      this.saveData = this.myDiagram.model.toJson();
+      this.$message({
+        message: "保存成功",
+        type: "success",
+        center: true
+      });
+      console.log(JSON.parse(this.saveData));
+    },
+    // 取消操作
+    Cancel() {
+      this.$confirm("取消之后数据将不会保存", "警告", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning"
+      })
+        .then(() => {
+          this.$message({
+            type: "success",
+            message: "删除成功!"
+          });
+        })
+        .catch(() => {
+          this.$message({
+            type: "info",
+            message: "已取消删除"
+          });
         });
-      };
-      load(); //
     }
   }
 };
@@ -468,31 +569,47 @@ export default {
 
 <style lang="scss" scoped>
 .xFlow {
+  position: relative;
   width: 100%;
   height: 100%;
-}
-.flow_group {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  border: 1px solid #333;
-}
 
-/* 左侧 */
-.myPaletteDiv {
-  box-sizing: border-box;
-  width: 150px;
-  border-right: 1px solid #ccc;
-  background-color: #eee;
-}
+  /* save */
 
-/* 右侧 */
-.myDiagramDiv {
-  flex-grow: 1;
-  box-sizing: border-box;
-  background-color: #fff;
+  .save {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 99;
+  }
+  /* flow */
+  .flow_group {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    border: 1px solid #333;
+    /* 左侧 */
+    .myPaletteDiv {
+      box-sizing: border-box;
+      width: 150px;
+      border-right: 1px solid #ccc;
+      background-color: #eee;
+    }
+
+    /* 右侧 */
+    .myDiagramDiv {
+      flex-grow: 1;
+      box-sizing: border-box;
+      background-color: #fff;
+    }
+  }
+}
+</style>
+
+<style lang="scss">
+canvas {
+  outline: 0;
 }
 </style>
